@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+java_versions=()
+java_location={{ system_directory }}/jdk/java_
+
+function help() {
+  echo "Active java version is:"
+  echo
+  $(cat {{ export_directory }}/JAVA_HOME)/bin/java -version
+  echo
+  echo
+
+  echo "Available versions are:"
+  echo
+  for java in {{ system_directory }}/jdk/*; do
+    echo "$(echo $java | awk -F'/' '{print $NF}' | awk -F'_' '{print $NF}') - $java"
+  done
+  echo
+  echo
+
+  echo "Help options:"
+  echo
+  echo "  -v <version>    switch to given version"
+  echo "  -h              show this help text"
+  exit 1;
+}
+
+if [ $# -eq 0 ]; then
+  help
+fi
+
+for java in {{ system_directory }}/jdk/*; do
+  java_versions+=($(echo $java | awk -F'/' '{print $NF}' | awk -F'_' '{print $NF}'))
+done
+
+while getopts v:h opt; do
+  case "$opt" in
+    v)
+        found=0
+
+        for version in "${java_versions[@]}"; do
+          if [[ "$version" == "$OPTARG" ]]; then
+            java_location+=$OPTARG
+            echo $java_location > {{ export_directory }}/JAVA_HOME
+
+            echo "Updated JAVA_HOME export file"
+            echo "Run 'refresh_env' command to apply change"
+            found=$(( found + 1))
+          fi
+        done
+
+        if (( found == 0 )); then
+          echo "$OPTARG is not a valid version"
+          echo
+          help
+        fi
+      ;;
+    h)  help ;;
+    *)  echo "Unknown option $opt"
+        help
+      ;;
+  esac
+done

@@ -1,0 +1,17 @@
+---
+- name: install desktop system
+  hosts: localhost
+  connection: local
+  roles:
+    - role: common
+      vars:
+        set_static_ip: n
+    - role: desktop
+    - role: java
+      vars:
+        versions: ["8", "11", "17"]
+        default: "17"
+    - role: maven
+      vars:
+        versions: ["3.8.8", "3.9.4"]
+        default: "3.9.4"

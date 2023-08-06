@@ -1,0 +1,124 @@
+---
+- name: Install basic packages
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    pkg:
+      - python3
+      - python3-pip
+      - keepass2
+      - nethogs
+      - gparted
+      - httpie
+      - snap
+      - openssh-server
+      - mpv
+      - libssl-dev
+      - pavucontrol
+      - pkg-config
+      - fuse
+      - fd-find
+      - tmux
+      - libfuse2 # for app image
+      - ntfs-3g # for ntfs mounts
+      - tilix
+
+      # gtile dependencies, install via https://extensions.gnome.org/extension/28/gtile/
+      # - gnome-tweaks
+      - gnome-shell-extension-prefs
+      - chrome-gnome-shell
+
+- name: Install snap non-classic snaps
+  community.general.snap:
+    name: "{{ item }}"
+  loop:
+    - lxd
+    - multipass
+    - redis-desktop-manager
+    - spotify
+  become: true
+
+- name: configure multipass
+  ansible.builtin.shell:
+    cmd: "{{ item }}"
+  loop:
+    - multipass set local.driver=lxd
+    - multipass set local.bridged-network=enp8s0
+
+- name: Install snap classic snaps
+  community.general.snap:
+    name: "{{ item }}"
+    classic: true
+  loop:
+    - kubectl
+    - helm
+  become: true
+
+- name: Install hashicorp apt key
+  ansible.builtin.shell:
+    cmd: wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+- name: Install hashicorp apt repository
+  ansible.builtin.shell:
+    cmd: 'echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list'
+
+- name: Install terraform
+  ansible.builtin.apt:
+    pkg: terraform
+    update_cache: true
+  become: true
+
+- name: Install helm repositories
+  kubernetes.core.helm_repository:
+    name: "{{ item.key }}"
+    repo_url: "{{ item.value }}"
+  loop: "{{ list | dict2items }}"
+  vars:
+    list:
+      openebs: https://openebs.github.io/charts
+      grafana: https://grafana.github.io/helm-charts
+      prometheus-community: https://prometheus-community.github.io/helm-charts
+      metallb: https://metallb.github.io/metallb
+      cert-manager: https://charts.jetstack.io
+      sealed-secrets: https://bitnami-labs.github.io/sealed-secrets
+      argo: https://argoproj.github.io/argo-helm
+      dex: https://charts.dexidp.io
+      ingress-nginx: https://kubernetes.github.io/ingress-nginx
+      kubernetes-replicator: https://helm.mittwald.de
+      minio: https://charts.min.io/
+      minio-op: https://operator.min.io/
+      kyverno: https://kyverno.github.io/kyverno/
+      hashicorp: https://helm.releases.hashicorp.com
+      secrets-store-csi-driver: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+      cilium: https://helm.cilium.io/
+      gitea: https://dl.gitea.io/charts/
+      apisix: https://charts.apiseven.com
+      goauthentik: https://charts.goauthentik.io
+      crossplane: https://charts.crossplane.io/stable
+      external-secrets-operator: https://charts.external-secrets.io/
+
+- name: Install rust
+  ansible.builtin.shell:
+    cmd: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+- name: Install cargo apps
+  ansible.builtin.shell:
+    cmd: "cargo install {{item}}"
+  loop:
+    - cargo-update
+    - cargo-watch
+    - cargo-audit
+
+- name: Install nvm
+  ansible.builtin.shell:
+    cmd: "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash"
+    creates: "{{ lookup('env', 'HOME') }}/.nvm"
+
+- name: Install npm latest
+  ansible.builtin.shell:
+    cmd: |
+      export NVM_DIR="$HOME/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm-sh
+      nvm install --lts
+      npm i -g neovim @ansible/ansible-language-server bash-language-server yarn vscode-langservers-extracted dockerfile-language-server-nodejs
+      yarn global add tree-sitter-cli yaml-language-server

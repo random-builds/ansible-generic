@@ -1,0 +1,9 @@
+---
+- name: copy ssh directory
+  become_user: '{{ user }}'
+  ansible.builtin.copy:
+    src: ssh/
+    dest: ~/.ssh/
+    owner: '{{ user }}'
+    group: '{{ group }}'
+    mode: '0600'

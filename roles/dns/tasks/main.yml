@@ -1,0 +1,86 @@
+---
+- name: create knot resolver build directory
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/knot-resolver-docker"
+    state: directory
+
+- name: copy knot resolver dockerfile
+  ansible.builtin.copy:
+    src: knot-resolver-dockerfile
+    dest: "{{ lookup('env', 'HOME') }}/knot-resolver-docker/Dockerfile"
+
+- name: create knot-resolver container
+  community.docker.docker_image:
+    source: build
+    name: knot-resolver
+    tag: v0.1
+    build:
+      path: "{{ lookup('env', 'HOME') }}/knot-resolver-docker"
+
+- name: copy knot resolver configs
+  ansible.builtin.template:
+    src: kresd.conf
+    dest: "{{ lookup('env', 'HOME') }}/kresd.conf"
+  register: knot_resolver_config
+
+- name: run knot resolver
+  community.docker.docker_container:
+    name: knot-resolver
+    image: knot-resolver:v0.1
+    state: started
+    restart: "{{ knot_resolver_config.changed | default(false) }}"
+    restart_policy: always
+    log_driver: json-file
+    log_options:
+      max-size: 30m
+      max-file: "3"
+    volumes:
+      - "{{ lookup('env', 'HOME') }}/kresd.conf:/config/kresd.conf"
+    command:
+      - "kresd"
+      - "-n"
+      - "-c"
+      - "/config/kresd.conf"
+
+- name: get knot resolver ip
+  ansible.builtin.shell:
+    cmd: 'docker inspect knot-resolver | jq -r ".[0].NetworkSettings.IPAddress"'
+  register: knot_resolver_ip
+
+- name: copy adguard configs
+  ansible.builtin.template:
+    src: adguard.yml
+    dest: "{{ lookup('env', 'HOME') }}/adguard.yml"
+  register: adguard_config
+
+- name: create adguard volumes
+  community.docker.docker_volume:
+    volume_name: "{{ item }}"
+  loop:
+    - adguard_data
+    - adguard_conf
+
+- name: run adguard
+  community.docker.docker_container:
+    name: adguard
+    image: adguard/adguardhome:v0.107.17
+    state: started
+    restart: "{{ adguard_config.changed | default(false) }}"
+    restart_policy: always
+    log_driver: json-file
+    log_options:
+      max-size: 50m
+      max-file: "2"
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80/tcp"
+      - "3000:3000/tcp"
+    volumes:
+      - "{{ lookup('env', 'HOME') }}/adguard.yml:/opt/adguardhome/conf/AdGuardHome.yamls"
+      - "adguard_conf:/opt/adguardhome/conf"
+      - "adguard_data:/opt/adguardhome/data"
+
+- name: docker image prune
+  ansible.builtin.shell:
+    cmd: docker image prune -af

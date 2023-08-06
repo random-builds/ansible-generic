@@ -1,0 +1,12 @@
+Include ./config_skt
+ServerAliveInterval 50
+
+Host github.com
+  User ibacangan
+  HostName github.com
+  IdentityFile ~/.ssh/personal2
+
+Host githubs.com
+  User ibacangan
+  HostName github.com
+  IdentityFile ~/.ssh/gh_work

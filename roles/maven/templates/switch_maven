@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+maven_versions=()
+maven_location={{ system_directory }}/maven/maven_
+
+function help() {
+  echo "Active maven version is:"
+  echo
+  $(cat {{ export_directory }}/MAVEN_HOME)/bin/mvn -version
+  echo
+  echo
+
+  echo "Available versions are:"
+  echo
+  for maven in {{ system_directory }}/maven/*; do
+    echo "$(echo $maven | awk -F'/' '{print $NF}' | awk -F'_' '{print $NF}') - $maven"
+  done
+  echo
+  echo
+
+  echo "Help options:"
+  echo
+  echo "  -v <version>    switch to given version"
+  echo "  -h              show this help text"
+  exit 1;
+}
+
+if [ $# -eq 0 ]; then
+  help
+fi
+
+for maven in {{ system_directory }}/maven/*; do
+  maven_versions+=($(echo $maven | awk -F'/' '{print $NF}' | awk -F'_' '{print $NF}'))
+done
+
+echo "${maven_versions[@]}"
+
+while getopts v:h opt; do
+  case "$opt" in
+    v)
+        found=0
+
+        for version in "${maven_versions[@]}"; do
+          if [[ "$version" == "$OPTARG" ]]; then
+            maven_location+=$OPTARG
+            echo $maven_location > {{ export_directory }}/MAVEN_HOME
+
+            echo "Updated MAVEN_HOME export file"
+            echo "Run 'refresh_env' command to apply change"
+            found=$(( found + 1))
+          fi
+        done
+
+        if (( found == 0 )); then
+          echo "$OPTARG is not a valid version"
+          echo
+          help
+        fi
+      ;;
+    h)  help ;;
+    *)  echo "Unknown option $opt"
+        help
+      ;;
+  esac
+done

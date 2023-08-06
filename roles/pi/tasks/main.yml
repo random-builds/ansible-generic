@@ -1,0 +1,10 @@
+---
+- name: disable services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - bluetooth.service
+    - wpa_supplicant.service
+    - hciuart.service

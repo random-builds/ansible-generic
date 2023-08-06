@@ -1,0 +1,9 @@
+---
+- name: pi as dns server
+  hosts: localhost
+  gather_facts: true
+  connection: local
+  roles:
+    - role: pi
+    - role: node_exporter
+    - role: dns

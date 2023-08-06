@@ -1,0 +1,29 @@
+---
+- name: copy knot resolver dockerfile
+  ansible.builtin.copy:
+    src: certs/
+    dest: "{{ lookup('env', 'HOME') }}/certs/"
+    mode: 0600
+
+- name: copy knot resolver configs
+  ansible.builtin.template:
+    src: haproxy.cfg
+    dest: "{{ lookup('env', 'HOME') }}/haproxy.cfg"
+  register: haproxy_config
+
+- name: run haproxy
+  community.docker.docker_container:
+    name: haproxy
+    image: haproxy:2.6
+    state: started
+    network_mode: host
+    restart: "{{ haproxy_config.changed | default(false) }}"
+    restart_policy: always
+    log_driver: json-file
+    log_options:
+      max-size: 50m
+      max-file: "2"
+    volumes:
+      - "{{ lookup('env', 'HOME') }}/certs:/certs"
+      - "{{ lookup('env', 'HOME') }}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+

@@ -1,0 +1,20 @@
+---
+- name: install system
+  hosts: localhost
+  connection: local
+  vars_prompt:
+    - name: set_static_ip
+      prompt: set static ip (y/N)?
+      private: no
+    - name: setup_docker
+      prompt: setup docker (y/N)?
+      private: no
+  roles:
+    - role: gantsign.oh-my-zsh
+      users:
+        - username: "{{ lookup('env', 'USER') }}"
+    - role: common
+    - role: docker
+      become: true
+      when:
+        - setup_docker == "y"

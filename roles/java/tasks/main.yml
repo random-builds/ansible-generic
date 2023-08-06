@@ -1,0 +1,39 @@
+---
+- name: "install java {{ versions }}"
+  ansible.builtin.include_role:
+    name: gantsign.java
+  vars:
+    java_version: "{{ item }}"
+    java_install_dir: /tmp/java
+    java_fact_group_name: "java_{{ item }}"
+    java_is_default_installation: no
+    ansible_become: yes
+  loop: "{{ versions }}"
+
+- name: create final destination directory
+  ansible.builtin.file:
+    path: "{{ system_directory }}/jdk"
+    state: directory
+
+- name: copy temporary location to final destination
+  ansible.builtin.command:
+    cmd: "cp -r {{ item.value.general.home }} {{ system_directory }}/jdk/{{ item.key }}"
+    creates: "{{ system_directory }}/jdk/{{ item.key }}"
+  with_dict: "{{ ansible_local }}"
+  when: "item.key is match('java_')"
+
+- name: create export file for JAVA_HOME
+  ansible.builtin.copy:
+    dest: "{{ export_directory }}/JAVA_HOME"
+    content: "{{ system_directory }}/jdk/java_{{ default | default(versions[0]) }}"
+
+- name: add java to path_env
+  ansible.builtin.copy:
+    dest: "{{ path_env_directory }}/java"
+    content: $JAVA_HOME/bin
+
+- name: install switching java version script
+  ansible.builtin.template:
+    src: switch_java
+    dest: "{{ script_directory }}"
+    mode: 0700

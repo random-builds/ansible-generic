@@ -1,0 +1,107 @@
+---
+- name: Install basic packages
+  become: true
+  ansible.builtin.apt:
+    force_apt_get: true
+    update_cache: true
+    pkg:
+      - git
+      - curl
+      - zip
+      - jq
+      - vim
+      - iputils-ping
+      - dnsutils
+
+- name: Create workspace directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0700
+  loop:
+    - "{{ script_directory }}"
+    - "{{ alias_directory }}"
+    - "{{ export_directory }}"
+    - "{{ path_env_directory }}"
+    - "{{ personal_directory }}"
+    - "{{ work_directory }}"
+
+- name: Set workspace directory facts
+  ansible.builtin.set_fact:
+    script_directory: "{{ script_directory }}"
+    alias_directory: "{{ alias_directory }}"
+    export_directory: "{{ export_directory }}"
+    path_env_directory: "{{ path_env_directory }}"
+    personal_directory: "{{ personal_directory }}"
+    work_directory: "{{ work_directory }}"
+
+- name: Install plain scripts
+  ansible.builtin.copy:
+    src: script/
+    dest: "{{ script_directory }}"
+    mode: 0700
+
+- name: Install template scripts
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ script_directory }}"
+    mode: 0700
+  with_fileglob: ../templates/script/*
+
+- name: Copy alias files
+  ansible.builtin.copy:
+    src: alias/
+    dest: "{{ alias_directory }}"
+    mode: 0600
+
+- name: Copy shell extension
+  ansible.builtin.template:
+    src: shell_extension.sh
+    dest: "{{ system_directory }}/shell_extension.sh"
+    mode: 0700
+
+- name: Load shell extension to bash
+  ansible.builtin.lineinfile:
+    line: "source {{ system_directory }}/shell_extension.sh"
+    path: ~/.bashrc
+
+- name: Check if zsh is installed
+  ansible.builtin.stat:
+    path: ~/.zshrc
+  register: zsh
+
+- name: Load shell extension to zsh
+  ansible.builtin.lineinfile:
+    line: "source {{ system_directory }}/shell_extension.sh"
+    path: ~/.zshrc
+  when: zsh.stat.exists
+
+- name: Copy tmux configuration
+  ansible.builtin.copy:
+    src: tmux.conf
+    dest: "{{ lookup('env', 'HOME') }}/.tmux.conf"
+    mode: 0600
+
+- name: Setup global git config user name
+  community.general.git_config:
+    name: user.name
+    value: ibacangan
+    scope: global
+
+- name: Setup global git config user email
+  community.general.git_config:
+    name: user.email
+    value: i.bacangan@gmail.com
+    scope: global
+
+- name: Increase host file watchers
+  become: true
+  ansible.builtin.copy:
+    src: 20-inotify.conf
+    dest: /etc/sysctl.d/20-inotify.conf
+    mode: 0644
+
+- name: Set static ip for debian
+  ansible.builtin.include_tasks: set_static_ip.yml
+  when:
+    - set_static_ip == "y"

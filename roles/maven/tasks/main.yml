@@ -1,0 +1,39 @@
+---
+- name: "install maven {{ versions }}"
+  ansible.builtin.include_role:
+    name: gantsign.maven
+  vars:
+    maven_version: "{{ item }}"
+    maven_install_dir: /tmp/maven
+    maven_fact_group_name: "maven_{{ item }}"
+    maven_is_default_installation: no
+    ansible_become: yes
+  loop: "{{ versions }}"
+
+- name: create final destination directory
+  ansible.builtin.file:
+    path: "{{ system_directory }}/maven"
+    state: directory
+
+- name: copy temporary location to final destination
+  ansible.builtin.command:
+    cmd: "cp -r {{ item.value.general.home }} {{ system_directory }}/maven/{{ item.key }}"
+    creates: "{{ system_directory }}/maven/{{ item.key }}"
+  with_dict: "{{ ansible_local }}"
+  when: "item.key is match('maven_')"
+
+- name: create export file for M2_HOME
+  ansible.builtin.copy:
+    dest: "{{ export_directory }}/M2_HOME"
+    content: "{{ system_directory }}/maven/maven_{{ default | default(versions[0]) }}"
+
+- name: add maven to path_env
+  ansible.builtin.copy:
+    dest: "{{ path_env_directory }}/maven"
+    content: $M2_HOME/bin
+
+- name: install switching maven version script
+  ansible.builtin.template:
+    src: switch_maven
+    dest: "{{ script_directory }}"
+    mode: 0700

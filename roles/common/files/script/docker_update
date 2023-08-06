@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+docker images | grep -iEv "(repository|none)" | awk '{print $1":"$2}' | xargs -L1 docker pull
+docker image prune -f
